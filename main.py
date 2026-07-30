@@ -42,9 +42,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         full_prompt = f"{NCERT_PROMPT}{user_query}"
         
-        # Standard stable model name string
+        # Using gemini-flash-latest alias for maximum reliability
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-flash-latest',
             contents=full_prompt,
         )
         
