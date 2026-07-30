@@ -1,14 +1,14 @@
 import os
 import asyncio
+from aiohttp import web
 from google import genai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Environment Variables
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")  # Render auto-provides this!
 
-# Safe Google GenAI Client initialization
 client = None
 if GEMINI_KEY:
     try:
@@ -16,7 +16,6 @@ if GEMINI_KEY:
     except Exception as e:
         print(f"Error initializing GenAI Client: {e}")
 
-# NCERT Prompt
 NCERT_PROMPT = (
     "You are a strict NCERT Biology expert for Class 11th and 12th NEET students. "
     "Only answer questions strictly covered in Class 11 and Class 12 NCERT Biology textbooks. "
@@ -109,17 +108,29 @@ def main():
         print("CRITICAL ERROR: TELEGRAM_BOT_TOKEN environment variable is not set!")
         return
 
-    print("Initializing Telegram Bot...")
+    port = int(os.environ.get("PORT", 8080))
     app = ApplicationBuilder().token(TELEGRAM_TOKEN.strip()).build()
-    
+
     app.add_handler(CommandHandler("start", startbioguru))
     app.add_handler(CommandHandler("startbioguru", startbioguru))
     app.add_handler(CommandHandler("ask", handle_message))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    print("Starting Telegram Polling cleanly...")
-    # Standard sync run_polling manages loop lifecycle safely
-    app.run_polling(drop_pending_updates=True)
+    if RENDER_EXTERNAL_URL:
+        # WEBHOOK MODE (Render ke liye best & zero conflicts)
+        webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/{TELEGRAM_TOKEN.strip()}"
+        print(f"Starting webhook at {webhook_url}")
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            url_path=TELEGRAM_TOKEN.strip(),
+            webhook_url=webhook_url,
+            drop_pending_updates=True
+        )
+    else:
+        # Fallback to polling if local testing
+        print("Starting polling mode...")
+        app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
