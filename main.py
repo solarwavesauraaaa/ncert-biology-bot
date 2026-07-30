@@ -13,7 +13,6 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 client = None
 if GEMINI_KEY:
     try:
-        # Strip trailing/leading spaces from environment variable key
         client = genai.Client(api_key=GEMINI_KEY.strip())
     except Exception as e:
         print(f"Error initializing GenAI Client: {e}")
@@ -85,7 +84,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         full_prompt = f"{NCERT_PROMPT}{user_query}"
         
-        # Async-friendly API execution to avoid freezing the event loop
         def generate_ai_response():
             return client.models.generate_content(
                 model='gemini-2.5-flash',
@@ -96,7 +94,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if response and response.text:
             text_to_send = response.text
-            # Safe parsing attempt for Telegram Markdown
             try:
                 await update.message.reply_text(text_to_send, parse_mode='Markdown')
             except Exception:
@@ -105,7 +102,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Kripya apna sawal thoda spasht (clear) karke poochhein.")
             
     except Exception as e:
-        # Prints exact exception type and details in Render logs for easy debugging
         print(f"CRITICAL ERROR LOG: {type(e).__name__} - {e}")
         await update.message.reply_text("Server me koi dikkat aayi hai, kripya thodi der baad try karein.")
 
@@ -133,20 +129,30 @@ async def main():
     # 2. Telegram Bot Setup
     app = ApplicationBuilder().token(TELEGRAM_TOKEN.strip()).build()
     
-    # Handlers for /start, /startbioguru, and /ask
     app.add_handler(CommandHandler("start", startbioguru))
     app.add_handler(CommandHandler("startbioguru", startbioguru))
     app.add_handler(CommandHandler("ask", handle_message))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    # Python-Telegram-Bot v22+ Clean Polling Setup
+    # Initialize bot and clear any previous webhook/polling state
     await app.initialize()
+    await app.bot.delete_webhook(drop_pending_updates=True)
     await app.start()
+    
+    # Start long polling
     await app.updater.start_polling(drop_pending_updates=True)
     print("Telegram Bot Polling started successfully!")
     
-    # Keep the asyncio loop running continuously
-    await asyncio.Event().wait()
+    try:
+        # Keep process running
+        await asyncio.Event().wait()
+    finally:
+        # Graceful shutdown to immediately free up the Telegram Polling connection on restart
+        print("Stopping bot updater cleanly...")
+        if app.updater and app.updater.is_running:
+            await app.updater.stop()
+        await app.stop()
+        await app.shutdown()
 
 if __name__ == "__main__":
     asyncio.run(main())
