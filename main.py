@@ -11,7 +11,7 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_KEY = os.getenv("GROQ_API_KEY")
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")
 
-# Modern Hinglish NCERT Prompt Definition
+# Modern Hinglish NCERT Prompt Definition with HTML Formatting
 NCERT_PROMPT = (
     "You are an expert NCERT Biology mentor for NEET Class 11th & 12th aspirants.\n\n"
     "CRITICAL LANGUAGE RULE (MODERN HINGLISH ONLY):\n"
@@ -19,34 +19,36 @@ NCERT_PROMPT = (
     "- DO NOT use difficult/pure Hindi words like 'Urja', 'Sankrit', 'Jeevbhautik', 'Prasarakshan', 'Pachan', 'Aavshyakta', 'Peshi'.\n"
     "- ALWAYS replace pure Hindi vocabulary with common English/Hinglish terms: "
     "Use 'Energy' (not Urja), 'Store' (not Sankrit), 'Digestive system/Digestion' (not Pachan), "
-    " 'Process' (not Prakriya/Jeevbhautik), 'Required' (not Aavshyakta), 'Muscle contraction' (not Peshi sankuchan), "
-    "'Nerve signal' (not Signal prasarakshan).\n"
-    "- Keep sentence structures casual, simple, and easy to read (e.g., 'ATP hamari body ki energy currency hai...').\n\n"
-    "RESPONSE STRUCTURE & GUIDELINES:\n"
-    "1. **Direct Definition:** Start with a clear 2-3 line simple definition.\n"
-    "2. **Detailed Breakdown:** Explain key steps, mechanisms, or structures step-by-step using bullet points.\n"
-    "3. **NCERT Keywords & Examples:** Highlight important NCERT terminology in bold.\n"
-    "4. **NEET High-Yield Tip:** End with a short 'NEET Point' summary.\n"
-    "5. **Scope Constraint:** If the question is outside Class 11/12 NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
-    "TELEGRAM FORMATTING RULES:\n"
-    "- Do NOT use headers like ### or ---\n"
-    "- Do NOT use LaTeX or dollar signs ($)\n"
-    "- Use simple bold tags (**like this**) for key terms.\n\n"
+    "'Process' (not Prakriya), 'Required' (not Aavshyakta), 'Muscle contraction' (not Peshi sankuchan), "
+    "'Nerve signal' (not Signal prasarakshan).\n\n"
+    "CRITICAL HTML FORMATTING RULES FOR TELEGRAM (STRICTLY FOLLOW):\n"
+    "1. Do NOT use asterisks (*) or markdown hashtags (###).\n"
+    "2. For bold text, ONLY use HTML tags like <b>text</b>.\n"
+    "3. For bullet points, use clean emojis or dash like '• ' or '👉 '.\n"
+    "4. Example output format:\n"
+    "   <b>Plant hormones ke key steps:</b>\n"
+    "   • <b>Auxin:</b> Plant growth aur cell elongation ko promote karta hai.\n"
+    "   • <b>Gibberellin:</b> Stem elongation aur seed germination control karta hai.\n\n"
+    "RESPONSE STRUCTURE:\n"
+    "1. <b>Direct Definition:</b> Start with a clear 2-3 line simple definition.\n"
+    "2. <b>Detailed Breakdown:</b> Key steps with <b>bullet points</b>.\n"
+    "3. <b>NCERT High-Yield Tip:</b> End with a <b>NEET Focus Point</b>.\n"
+    "4. Scope: If outside NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
     "Question: "
 )
 
 async def startbioguru(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
-        "🌿 *Welcome to Bio Guru NCERT Assistant!* 🌿\n\n"
+        "🌿 <b>Welcome to Bio Guru NCERT Assistant!</b> 🌿\n\n"
         "Mai NEET Class 11th & 12th Biology doubts solve karne ke liye aapka dedicated bot hu.\n\n"
-        "📌 *Group me doubt poochne ke tareeke:*\n"
-        "1. `/ask Krebs cycle kya hai?`\n"
-        "2. Bot ko mention karke: `@ncertbiologybot Krebs cycle?`\n"
+        "📌 <b>Group me doubt poochne ke tareeke:</b>\n"
+        "1. <code>/ask Krebs cycle kya hai?</code>\n"
+        "2. Bot ko mention karke: <code>@ncertbiologybot Krebs cycle?</code>\n"
         "3. Direct Message (DM) me bina kisi command ke poochhein!\n"
     )
     if update.message:
         try:
-            await update.message.reply_text(welcome_msg, parse_mode='Markdown')
+            await update.message.reply_text(welcome_msg, parse_mode='HTML')
         except Exception:
             await update.message.reply_text(welcome_msg)
 
@@ -104,7 +106,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": "You are a modern Hinglish biology teacher. Use simple modern conversational Hinglish without pure difficult Hindi words."},
+                        {"role": "system", "content": "You are a biology assistant that outputs clean text using HTML formatting (<b>bold</b>) instead of markdown asterisks."},
                         {"role": "user", "content": full_prompt}
                     ],
                     model="llama-3.3-70b-versatile",
@@ -124,7 +126,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": "You are a modern Hinglish biology teacher. Use simple modern conversational Hinglish without pure difficult Hindi words."},
+                        {"role": "system", "content": "You are a biology assistant that outputs clean text using HTML formatting (<b>bold</b>) instead of markdown asterisks."},
                         {"role": "user", "content": full_prompt}
                     ],
                     model="deepseek-r1-distill-llama-70b",
@@ -143,9 +145,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text_to_send = text_to_send.split("</think>")[-1].strip()
 
         try:
-            await update.message.reply_text(text_to_send, parse_mode='Markdown')
+            await update.message.reply_text(text_to_send, parse_mode='HTML')
         except Exception:
-            await update.message.reply_text(text_to_send)
+            # Clean HTML tags if parsing fails
+            clean_text = text_to_send.replace('<b>', '').replace('</b>', '').replace('<code>', '').replace('</code>', '')
+            await update.message.reply_text(clean_text)
     else:
         await update.message.reply_text("Server me koi dikkat aayi hai, kripya thodi der baad try karein.")
 
