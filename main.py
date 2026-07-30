@@ -90,7 +90,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"Error Log: {e}")
         await update.message.reply_text("Server me koi dikkat aayi hai, kripya thodi der baad try karein.")
 
-# Render Health Check Route (Fixes 'No open ports detected')
+# Render Health Check Route
 async def handle_ping(request):
     return web.Response(text="NCERT Bot is Live & Active!")
 
@@ -103,8 +103,8 @@ async def main():
 
     # Aiohttp Web Server setup
     server = web.Application()
+    # Note: add_get automatically handles HEAD requests in aiohttp!
     server.router.add_get('/', handle_ping)
-    server.router.add_head('/', handle_ping)
     
     runner = web.AppRunner(server)
     await runner.setup()
@@ -118,7 +118,7 @@ async def main():
     async with app:
         await app.initialize()
         await app.start()
-        await app.updater.start_polling(drop_pending_updates=True) # Drop old updates to clear conflict
+        await app.updater.start_polling(drop_pending_updates=True)
         print("NCERT Bot polling started successfully...")
         
         # Keep application running forever
