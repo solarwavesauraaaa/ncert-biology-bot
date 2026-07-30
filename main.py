@@ -26,31 +26,35 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 # Google GenAI Client
 client = genai.Client(api_key=GEMINI_KEY)
 
-# Strict NCERT Prompt with NO-LaTeX Rule
+# NCERT Prompt with Clean Telegram Formatting Rules
 NCERT_PROMPT = (
     "You are a strict NCERT Biology expert for Class 11th and 12th NEET students. "
     "Only answer questions strictly covered in Class 11 and Class 12 NCERT Biology textbooks. "
     "If a topic or question is NOT present in official NCERT Biology, you MUST reply strictly: "
     "'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
-    "CRITICAL FORMATTING RULE: Do NOT use LaTeX, dollar signs ($ or $$), or backslashes (\\text, \\rightarrow, etc.). "
-    "Write all chemical formulas, equations, and terms in plain text or simple Unicode (e.g., CO2, H+, NADH, FADH2, ATP). "
-    "Keep text clean and easy to read on Telegram mobile app.\n\n"
+    "CRITICAL FORMATTING RULES FOR TELEGRAM:\n"
+    "1. Do NOT use headers like ### or hashtags.\n"
+    "2. Do NOT use horizontal lines like ---\n"
+    "3. Do NOT use LaTeX, dollar signs ($ or $$), or backslashes.\n"
+    "4. Use simple bold tags (**like this**) for key terms and title.\n"
+    "5. Use clear numbered lists or bullet points.\n"
+    "6. Write chemical terms simply (e.g., CO2, H+, NADH, FADH2, ATP).\n\n"
     "Question: "
 )
 
 # /startbioguru Command
 async def startbioguru(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
-        "🌿 Welcome to Bio Guru NCERT Assistant! 🌿\n\n"
+        "🌿 *Welcome to Bio Guru NCERT Assistant!* 🌿\n\n"
         "Mai NEET Class 11th & 12th Biology doubts solve karne ke liye aapka dedicated bot hu.\n\n"
-        "📌 Group me doubt poochne ke tareeke:\n"
+        "📌 *Group me doubt poochne ke tareeke:*\n"
         "1. `/ask Krebs cycle kya hai?`\n"
         "2. Bot ko mention karke: `@ncertbiologybot Krebs cycle?`\n"
-        "3. Direct Message (DM) me bina kisi command ke poochhe!\n"
+        "3. Direct Message (DM) me bina kisi command ke poochhein!\n"
     )
-    await update.message.reply_text(welcome_msg)
+    await update.message.reply_text(welcome_msg, parse_mode='Markdown')
 
-# Handle Questions (Group Trigger Logic)
+# Handle Questions
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
@@ -59,9 +63,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     bot_username = context.bot.username
 
-    # Group / Supergroup Check
+    # Group / Supergroup Logic
     if chat_type in ["group", "supergroup"]:
-        # Agar message /ask se start nahi hota AUR bot ko tag/reply nahi kiya gaya, toh ignore karo
         is_asking = user_text.startswith("/ask")
         is_mentioned = bot_username and f"@{bot_username}" in user_text
         is_reply_to_bot = (
@@ -70,12 +73,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         if not (is_asking or is_mentioned or is_reply_to_bot):
-            return  # Normal group chat me bot shaant rahega
+            return
 
-        # Text me se /ask ya @bot_username ko clean kar dein
         user_query = user_text.replace("/ask", "").replace(f"@{bot_username}", "").strip()
     else:
-        # Private Chat (DM) me bina kisi command ke direct query le le
         user_query = user_text.strip()
 
     if not user_query:
@@ -91,7 +92,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         if response.text:
-            await update.message.reply_text(response.text)
+            # Telegram Par Markdown Enable Karke Send Karein
+            try:
+                await update.message.reply_text(response.text, parse_mode='Markdown')
+            except Exception:
+                # Agar koi formatting character error aaye toh normal text ki tarah bhej de
+                await update.message.reply_text(response.text)
         else:
             await update.message.reply_text("Kripya apna sawal thoda spasht (clear) karke poochhein.")
             
@@ -104,7 +110,7 @@ if __name__ == "__main__":
     
     app.add_handler(CommandHandler("startbioguru", startbioguru))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-    app.add_handler(CommandHandler("ask", handle_message)) # /ask command handler
+    app.add_handler(CommandHandler("ask", handle_message))
     
     print("NCERT Bot running successfully on Render...")
     app.run_polling()
