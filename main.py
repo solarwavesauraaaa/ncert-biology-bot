@@ -1,6 +1,5 @@
 import os
 import asyncio
-from aiohttp import web
 from google import genai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
@@ -105,28 +104,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"CRITICAL ERROR LOG: {type(e).__name__} - {e}")
         await update.message.reply_text("Server me koi dikkat aayi hai, kripya thodi der baad try karein.")
 
-# Render Health Check Route
-async def handle_ping(request):
-    return web.Response(text="NCERT Bot is Live & Active!")
-
-async def main():
+def main():
     if not TELEGRAM_TOKEN:
         print("CRITICAL ERROR: TELEGRAM_BOT_TOKEN environment variable is not set!")
         return
 
-    # 1. Web Server Setup (Render Keep-Alive)
-    server = web.Application()
-    server.router.add_get('/', handle_ping)
-    
-    runner = web.AppRunner(server)
-    await runner.setup()
-    
-    port = int(os.environ.get("PORT", 8080))
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-    print(f"Web server active on port {port}")
-
-    # 2. Telegram Bot Setup
+    print("Initializing Telegram Bot...")
     app = ApplicationBuilder().token(TELEGRAM_TOKEN.strip()).build()
     
     app.add_handler(CommandHandler("start", startbioguru))
@@ -134,25 +117,9 @@ async def main():
     app.add_handler(CommandHandler("ask", handle_message))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    # Initialize bot and clear any previous webhook/polling state
-    await app.initialize()
-    await app.bot.delete_webhook(drop_pending_updates=True)
-    await app.start()
-    
-    # Start long polling
-    await app.updater.start_polling(drop_pending_updates=True)
-    print("Telegram Bot Polling started successfully!")
-    
-    try:
-        # Keep process running
-        await asyncio.Event().wait()
-    finally:
-        # Graceful shutdown to immediately free up the Telegram Polling connection on restart
-        print("Stopping bot updater cleanly...")
-        if app.updater and app.updater.is_running:
-            await app.updater.stop()
-        await app.stop()
-        await app.shutdown()
+    print("Starting Telegram Polling cleanly...")
+    # Standard sync run_polling manages loop lifecycle safely
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
