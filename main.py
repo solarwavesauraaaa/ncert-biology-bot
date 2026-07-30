@@ -9,8 +9,13 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
-# Google GenAI Client
-client = genai.Client(api_key=GEMINI_KEY)
+# Safe Google GenAI Client initialization
+client = None
+if GEMINI_KEY:
+    try:
+        client = genai.Client(api_key=GEMINI_KEY)
+    except Exception as e:
+        print(f"Error initializing GenAI Client: {e}")
 
 # NCERT Prompt
 NCERT_PROMPT = (
@@ -39,10 +44,11 @@ async def startbioguru(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "2. Bot ko mention karke: `@ncertbiologybot Krebs cycle?`\n"
         "3. Direct Message (DM) me bina kisi command ke poochhein!\n"
     )
-    try:
-        await update.message.reply_text(welcome_msg, parse_mode='Markdown')
-    except Exception:
-        await update.message.reply_text(welcome_msg)
+    if update.message:
+        try:
+            await update.message.reply_text(welcome_msg, parse_mode='Markdown')
+        except Exception:
+            await update.message.reply_text(welcome_msg)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -71,18 +77,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Kripya apna question likhein! (e.g., /ask ATP kya hai?)")
         return
 
+    if not client:
+        await update.message.reply_text("GEMINI_API_KEY Missing! Kripya Render Environment Variables check karein.")
+        return
+
     try:
         full_prompt = f"{NCERT_PROMPT}{user_query}"
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=full_prompt,
-        )
         
-        if response.text:
+        # Async-friendly API execution to avoid freezing event loop
+        def generate_ai_response():
+            return client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=full_prompt,
+            )
+
+        response = await asyncio.to_thread(generate_ai_response)
+        
+        if response and response.text:
+            text_to_send = response.text
             try:
-                await update.message.reply_text(response.text, parse_mode='Markdown')
+                await update.message.reply_text(text_to_send, parse_mode='Markdown')
             except Exception:
-                await update.message.reply_text(response.text)
+                await update.message.reply_text(text_to_send)
         else:
             await update.message.reply_text("Kripya apna sawal thoda spasht (clear) karke poochhein.")
             
@@ -95,6 +111,10 @@ async def handle_ping(request):
     return web.Response(text="NCERT Bot is Live & Active!")
 
 async def main():
+    if not TELEGRAM_TOKEN:
+        print("CRITICAL ERROR: TELEGRAM_BOT_TOKEN environment variable is not set!")
+        return
+
     # 1. Web Server Setup (Render Keep-Alive)
     server = web.Application()
     server.router.add_get('/', handle_ping)
@@ -109,17 +129,20 @@ async def main():
 
     # 2. Telegram Bot Setup
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    
+    # Handlers for both /start and /startbioguru
+    app.add_handler(CommandHandler("start", startbioguru))
     app.add_handler(CommandHandler("startbioguru", startbioguru))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
     app.add_handler(CommandHandler("ask", handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    # Python-Telegram-Bot v22+ Clean Polling
+    # Python-Telegram-Bot v22+ Clean Polling Setup
     await app.initialize()
     await app.start()
     await app.updater.start_polling(drop_pending_updates=True)
     print("Telegram Bot Polling started successfully!")
     
-    # Event loop keep-alive
+    # Keep the asyncio loop running continuously
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
