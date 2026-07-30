@@ -78,11 +78,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         full_prompt = f"{NCERT_PROMPT}{user_query}"
         clean_key = GEMINI_KEY.strip()
 
-        # Thread-safe execution of Gemini API request
-               def generate_ai_response():
+        def generate_ai_response():
             client = genai.Client(api_key=clean_key)
             return client.models.generate_content(
-                model='gemini-1.5-flash',  # <--- Stable production model
+                model='gemini-1.5-flash',
                 contents=full_prompt,
             )
 
@@ -98,7 +97,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Kripya apna sawal thoda spasht (clear) karke poochhein.")
             
     except Exception as e:
-        # Prints precise error details in Render Logs
         print(f"CRITICAL ERROR LOG: {type(e).__name__} - {e}")
         await update.message.reply_text("Server me koi dikkat aayi hai, kripya thodi der baad try karein.")
 
