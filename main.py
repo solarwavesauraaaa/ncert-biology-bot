@@ -5,19 +5,19 @@ from google import genai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Dummy Web Server (Render Port Binding ke liye)
+# Dummy Web Server (Render Port Binding & Health Check ke liye)
 class DummyServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"NCERT Bot is Live!")
 
-def run_dummy_server():
-    port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), DummyServer)
-    server.serve_forever()
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
 
-threading.Thread(target=run_dummy_server, daemon=True).start()
+    def log_message(self, format, *args):
+        return  # Logs ko clean rakhne ke liye ping logs suppress kiye hain
 
 # Environment Variables
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
