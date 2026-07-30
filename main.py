@@ -1,12 +1,14 @@
 import os
 import asyncio
 from google import genai
+from groq import Groq
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Environment Variables
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+GROQ_KEY = os.getenv("GROQ_API_KEY")
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")
 
 # NCERT Prompt Definition
@@ -70,34 +72,49 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Kripya apna question likhein! (e.g., /ask ATP kya hai?)")
         return
 
-    if not GEMINI_KEY:
-        await update.message.reply_text("GEMINI_API_KEY Missing! Kripya Render Environment Variables check karein.")
-        return
+    full_prompt = f"{NCERT_PROMPT}{user_query}"
+    text_to_send = None
 
-    try:
-        full_prompt = f"{NCERT_PROMPT}{user_query}"
-        clean_key = GEMINI_KEY.strip()
-
-        def generate_ai_response():
-            client = genai.Client(api_key=clean_key)
-            return client.models.generate_content(
-                model='gemini-2.0-flash',
-                contents=full_prompt,
-            )
-
-        response = await asyncio.to_thread(generate_ai_response)
-        
-        if response and response.text:
-            text_to_send = response.text
-            try:
-                await update.message.reply_text(text_to_send, parse_mode='Markdown')
-            except Exception:
-                await update.message.reply_text(text_to_send)
-        else:
-            await update.message.reply_text("Kripya apna sawal thoda spasht (clear) karke poochhein.")
+    # --- PRIMARY CHOICE: GEMINI API ---
+    if GEMINI_KEY:
+        try:
+            def call_gemini():
+                client = genai.Client(api_key=GEMINI_KEY.strip())
+                return client.models.generate_content(
+                    model='gemini-2.0-flash',
+                    contents=full_prompt,
+                )
             
-    except Exception as e:
-        print(f"CRITICAL ERROR LOG: {type(e).__name__} - {e}")
+            response = await asyncio.to_thread(call_gemini)
+            if response and response.text:
+                text_to_send = response.text
+        except Exception as gemini_error:
+            print(f"GEMINI ERROR (Fallback to Groq): {gemini_error}")
+
+    # --- SECONDARY CHOICE: GROQ FALLBACK (If Gemini fails or KEY missing) ---
+    if not text_to_send and GROQ_KEY:
+        try:
+            def call_groq():
+                groq_client = Groq(api_key=GROQ_KEY.strip())
+                chat_completion = groq_client.chat.completions.create(
+                    messages=[
+                        {"role": "user", "content": full_prompt}
+                    ],
+                    model="llama-3.3-70b-versatile",
+                )
+                return chat_completion.choices[0].message.content
+
+            text_to_send = await asyncio.to_thread(call_groq)
+        except Exception as groq_error:
+            print(f"GROQ ERROR: {groq_error}")
+
+    # --- SEND RESPONSE TO USER ---
+    if text_to_send:
+        try:
+            await update.message.reply_text(text_to_send, parse_mode='Markdown')
+        except Exception:
+            await update.message.reply_text(text_to_send)
+    else:
         await update.message.reply_text("Server me koi dikkat aayi hai, kripya thodi der baad try karein.")
 
 def main():
