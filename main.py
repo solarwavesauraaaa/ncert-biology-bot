@@ -13,7 +13,8 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 client = None
 if GEMINI_KEY:
     try:
-        client = genai.Client(api_key=GEMINI_KEY)
+        # Strip trailing/leading spaces from environment variable key
+        client = genai.Client(api_key=GEMINI_KEY.strip())
     except Exception as e:
         print(f"Error initializing GenAI Client: {e}")
 
@@ -84,7 +85,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         full_prompt = f"{NCERT_PROMPT}{user_query}"
         
-        # Async-friendly API execution to avoid freezing event loop
+        # Async-friendly API execution to avoid freezing the event loop
         def generate_ai_response():
             return client.models.generate_content(
                 model='gemini-2.5-flash',
@@ -95,6 +96,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if response and response.text:
             text_to_send = response.text
+            # Safe parsing attempt for Telegram Markdown
             try:
                 await update.message.reply_text(text_to_send, parse_mode='Markdown')
             except Exception:
@@ -103,7 +105,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Kripya apna sawal thoda spasht (clear) karke poochhein.")
             
     except Exception as e:
-        print(f"Error Log: {e}")
+        # Prints exact exception type and details in Render logs for easy debugging
+        print(f"CRITICAL ERROR LOG: {type(e).__name__} - {e}")
         await update.message.reply_text("Server me koi dikkat aayi hai, kripya thodi der baad try karein.")
 
 # Render Health Check Route
@@ -128,9 +131,9 @@ async def main():
     print(f"Web server active on port {port}")
 
     # 2. Telegram Bot Setup
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN.strip()).build()
     
-    # Handlers for both /start and /startbioguru
+    # Handlers for /start, /startbioguru, and /ask
     app.add_handler(CommandHandler("start", startbioguru))
     app.add_handler(CommandHandler("startbioguru", startbioguru))
     app.add_handler(CommandHandler("ask", handle_message))
