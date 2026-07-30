@@ -1,14 +1,15 @@
 import os
 import asyncio
-from aiohttp import web
 from google import genai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
+# Environment Variables
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")  # Render auto-provides this!
+RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")  # Render automatically provides this
 
+# Safe Google GenAI Client initialization
 client = None
 if GEMINI_KEY:
     try:
@@ -16,6 +17,7 @@ if GEMINI_KEY:
     except Exception as e:
         print(f"Error initializing GenAI Client: {e}")
 
+# NCERT Prompt
 NCERT_PROMPT = (
     "You are a strict NCERT Biology expert for Class 11th and 12th NEET students. "
     "Only answer questions strictly covered in Class 11 and Class 12 NCERT Biology textbooks. "
@@ -117,9 +119,9 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
     if RENDER_EXTERNAL_URL:
-        # WEBHOOK MODE (Render ke liye best & zero conflicts)
+        # Webhook mode binds to Render's required PORT
         webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/{TELEGRAM_TOKEN.strip()}"
-        print(f"Starting webhook at {webhook_url}")
+        print(f"Starting Webhook on Port {port} -> {webhook_url}")
         app.run_webhook(
             listen="0.0.0.0",
             port=port,
@@ -128,8 +130,8 @@ def main():
             drop_pending_updates=True
         )
     else:
-        # Fallback to polling if local testing
-        print("Starting polling mode...")
+        # Fallback for local PC testing
+        print("Starting Polling Mode locally...")
         app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
