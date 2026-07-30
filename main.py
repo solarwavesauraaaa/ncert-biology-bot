@@ -5,7 +5,7 @@ from google import genai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Dummy Web Server (Render Port Binding)
+# Dummy Web Server (Render Port Binding ke liye)
 class DummyServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -26,7 +26,7 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 # Google GenAI Client
 client = genai.Client(api_key=GEMINI_KEY)
 
-# NCERT Prompt with NO-LaTeX rule for Telegram
+# Strict NCERT Prompt with NO-LaTeX Rule
 NCERT_PROMPT = (
     "You are a strict NCERT Biology expert for Class 11th and 12th NEET students. "
     "Only answer questions strictly covered in Class 11 and Class 12 NCERT Biology textbooks. "
@@ -38,11 +38,50 @@ NCERT_PROMPT = (
     "Question: "
 )
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Namaste! Mai NCERT Class 11th & 12th Biology Bot hu. NCERT Biology se juda koi bhi question poochhein!")
+# /startbioguru Command
+async def startbioguru(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    welcome_msg = (
+        "🌿 Welcome to Bio Guru NCERT Assistant! 🌿\n\n"
+        "Mai NEET Class 11th & 12th Biology doubts solve karne ke liye aapka dedicated bot hu.\n\n"
+        "📌 Group me doubt poochne ke tareeke:\n"
+        "1. `/ask Krebs cycle kya hai?`\n"
+        "2. Bot ko mention karke: `@ncertbiologybot Krebs cycle?`\n"
+        "3. Direct Message (DM) me bina kisi command ke poochhe!\n"
+    )
+    await update.message.reply_text(welcome_msg)
 
+# Handle Questions (Group Trigger Logic)
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_query = update.message.text
+    if not update.message or not update.message.text:
+        return
+
+    chat_type = update.message.chat.type
+    user_text = update.message.text
+    bot_username = context.bot.username
+
+    # Group / Supergroup Check
+    if chat_type in ["group", "supergroup"]:
+        # Agar message /ask se start nahi hota AUR bot ko tag/reply nahi kiya gaya, toh ignore karo
+        is_asking = user_text.startswith("/ask")
+        is_mentioned = bot_username and f"@{bot_username}" in user_text
+        is_reply_to_bot = (
+            update.message.reply_to_message and 
+            update.message.reply_to_message.from_user.id == context.bot.id
+        )
+
+        if not (is_asking or is_mentioned or is_reply_to_bot):
+            return  # Normal group chat me bot shaant rahega
+
+        # Text me se /ask ya @bot_username ko clean kar dein
+        user_query = user_text.replace("/ask", "").replace(f"@{bot_username}", "").strip()
+    else:
+        # Private Chat (DM) me bina kisi command ke direct query le le
+        user_query = user_text.strip()
+
+    if not user_query:
+        await update.message.reply_text("Kripya apna question likhein! (e.g., /ask Krebs cycle?)")
+        return
+
     try:
         full_prompt = f"{NCERT_PROMPT}{user_query}"
         
@@ -62,8 +101,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
+    
+    app.add_handler(CommandHandler("startbioguru", startbioguru))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    app.add_handler(CommandHandler("ask", handle_message)) # /ask command handler
     
     print("NCERT Bot running successfully on Render...")
     app.run_polling()
