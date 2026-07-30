@@ -26,12 +26,14 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 # Google GenAI Client
 client = genai.Client(api_key=GEMINI_KEY)
 
-# NCERT Prompt with Clean Telegram Formatting Rules
+# NCERT Prompt with Hinglish & Clean Telegram Formatting Rules
 NCERT_PROMPT = (
     "You are a strict NCERT Biology expert for Class 11th and 12th NEET students. "
     "Only answer questions strictly covered in Class 11 and Class 12 NCERT Biology textbooks. "
     "If a topic or question is NOT present in official NCERT Biology, you MUST reply strictly: "
     "'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
+    "LANGUAGE RULE: Write the entire response in natural, simple Hinglish (Hindi written in Roman script mixed with simple English biology terms). "
+    "For example: 'Krebs cycle matrix of mitochondria me hoti hai.'\n\n"
     "CRITICAL FORMATTING RULES FOR TELEGRAM:\n"
     "1. Do NOT use headers like ### or hashtags.\n"
     "2. Do NOT use horizontal lines like ---\n"
