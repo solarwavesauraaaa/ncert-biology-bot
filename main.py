@@ -79,10 +79,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         clean_key = GEMINI_KEY.strip()
 
         # Thread-safe execution of Gemini API request
-        def generate_ai_response():
+               def generate_ai_response():
             client = genai.Client(api_key=clean_key)
             return client.models.generate_content(
-                model='gemini-2.0-flash',
+                model='gemini-1.5-flash',  # <--- Stable production model
                 contents=full_prompt,
             )
 
