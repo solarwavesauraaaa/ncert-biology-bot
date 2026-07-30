@@ -5,7 +5,7 @@ from google import genai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Dummy Web Server to satisfy Render Port requirement
+# Dummy Web Server (Render Port Binding ke liye)
 class DummyServer(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -19,11 +19,11 @@ def run_dummy_server():
 
 threading.Thread(target=run_dummy_server, daemon=True).start()
 
-# Read Environment Variables
+# Environment Variables
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
-# Initialize Gemini Client with new SDK
+# New Google GenAI SDK Client Setup
 client = genai.Client(api_key=GEMINI_KEY)
 
 NCERT_PROMPT = (
@@ -42,7 +42,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         full_prompt = f"{NCERT_PROMPT}{user_query}"
         
-        # New Google GenAI API Call
+        # Latest Gemini 2.5 Flash Model API Call
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=full_prompt,
@@ -54,7 +54,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Kripya apna sawal thoda spasht (clear) karke poochhein.")
             
     except Exception as e:
-        print(f"Gemini API Error: {e}")
+        print(f"Gemini API Error Log: {e}")
         await update.message.reply_text("Server me koi dikkat aayi hai, kripya thodi der baad try karein.")
 
 if __name__ == "__main__":
