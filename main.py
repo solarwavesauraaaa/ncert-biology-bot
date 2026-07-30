@@ -75,7 +75,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     full_prompt = f"{NCERT_PROMPT}{user_query}"
     text_to_send = None
 
-    # --- PRIMARY CHOICE: GEMINI API ---
+    # --- LEVEL 1: GEMINI API ---
     if GEMINI_KEY:
         try:
             def call_gemini():
@@ -89,27 +89,44 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if response and response.text:
                 text_to_send = response.text
         except Exception as gemini_error:
-            print(f"GEMINI ERROR (Fallback to Groq): {gemini_error}")
+            print(f"GEMINI ERROR (Fallback to Groq Llama): {gemini_error}")
 
-    # --- SECONDARY CHOICE: GROQ FALLBACK (If Gemini fails or KEY missing) ---
+    # --- LEVEL 2: GROQ - LLAMA 3.3 ---
     if not text_to_send and GROQ_KEY:
         try:
-            def call_groq():
+            def call_groq_llama():
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
-                    messages=[
-                        {"role": "user", "content": full_prompt}
-                    ],
+                    messages=[{"role": "user", "content": full_prompt}],
                     model="llama-3.3-70b-versatile",
                 )
                 return chat_completion.choices[0].message.content
 
-            text_to_send = await asyncio.to_thread(call_groq)
-        except Exception as groq_error:
-            print(f"GROQ ERROR: {groq_error}")
+            text_to_send = await asyncio.to_thread(call_groq_llama)
+        except Exception as llama_error:
+            print(f"LLAMA ERROR (Fallback to DeepSeek): {llama_error}")
+
+    # --- LEVEL 3: GROQ - DEEPSEEK R1 ---
+    if not text_to_send and GROQ_KEY:
+        try:
+            def call_groq_deepseek():
+                groq_client = Groq(api_key=GROQ_KEY.strip())
+                chat_completion = groq_client.chat.completions.create(
+                    messages=[{"role": "user", "content": full_prompt}],
+                    model="deepseek-r1-distill-llama-70b",
+                )
+                return chat_completion.choices[0].message.content
+
+            text_to_send = await asyncio.to_thread(call_groq_deepseek)
+        except Exception as deepseek_error:
+            print(f"DEEPSEEK ERROR: {deepseek_error}")
 
     # --- SEND RESPONSE TO USER ---
     if text_to_send:
+        # Strip thinking tags if DeepSeek outputs internal thoughts (<think>...</think>)
+        if "<think>" in text_to_send and "</think>" in text_to_send:
+            text_to_send = text_to_send.split("</think>")[-1].strip()
+
         try:
             await update.message.reply_text(text_to_send, parse_mode='Markdown')
         except Exception:
