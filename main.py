@@ -95,7 +95,7 @@ async def handle_ping(request):
     return web.Response(text="NCERT Bot is Live & Active!")
 
 async def main():
-    # 1. Web Server Setup
+    # 1. Web Server Setup (Render Keep-Alive)
     server = web.Application()
     server.router.add_get('/', handle_ping)
     
@@ -113,18 +113,14 @@ async def main():
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
     app.add_handler(CommandHandler("ask", handle_message))
 
-    async with app:
-        await app.initialize()
-        await app.start()
-        # Drop pending updates to clear conflict queue
-        await app.updater.start_polling(drop_pending_updates=True, stop_signals=None)
-        print("Telegram Bot Polling started successfully!")
-        
-        try:
-            await asyncio.Event().wait()
-        finally:
-            await app.updater.stop()
-            await app.stop()
+    # Python-Telegram-Bot v22+ Clean Polling
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling(drop_pending_updates=True)
+    print("Telegram Bot Polling started successfully!")
+    
+    # Event loop keep-alive
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
     asyncio.run(main())
