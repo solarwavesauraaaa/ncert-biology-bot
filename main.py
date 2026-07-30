@@ -1,19 +1,33 @@
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import google.generativeai as genai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Environment variables se keys read karna
+# Dummy Web Server to satisfy Render Port requirement
+class DummyServer(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"NCERT Bot is Live!")
+
+def run_dummy_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), DummyServer)
+    server.serve_forever()
+
+# Start Web Server in background thread
+threading.Thread(target=run_dummy_server, daemon=True).start()
+
+# Read Environment Variables
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
-# Gemini API Configure
+# Gemini Setup
 genai.configure(api_key=GEMINI_KEY)
-
-# Gemini Model Setup
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Main prompt rule setting
 NCERT_PROMPT = (
     "You are a strict NCERT Biology expert for Class 11th and 12th NEET students. "
     "Only answer questions strictly covered in Class 11 and Class 12 NCERT Biology textbooks. "
@@ -27,9 +41,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_query = update.message.text
-
     try:
-        # Send query with strict instructions
         full_prompt = f"{NCERT_PROMPT}{user_query}"
         response = model.generate_content(full_prompt)
         
@@ -47,5 +59,5 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
     
-    print("NCERT Bot running successfully...")
+    print("NCERT Bot running successfully on Render...")
     app.run_polling()
