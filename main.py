@@ -26,14 +26,14 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 # Google GenAI Client
 client = genai.Client(api_key=GEMINI_KEY)
 
-# NCERT Prompt with Hinglish & Clean Telegram Formatting Rules
+# NCERT Prompt with Clean Telegram Formatting & Hinglish Rules
 NCERT_PROMPT = (
     "You are a strict NCERT Biology expert for Class 11th and 12th NEET students. "
     "Only answer questions strictly covered in Class 11 and Class 12 NCERT Biology textbooks. "
+    "If a user has a typo (e.g. Cryoneab instead of Cry1Ab/Cry1Ac), correct it gently and answer based on NCERT. "
     "If a topic or question is NOT present in official NCERT Biology, you MUST reply strictly: "
     "'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
-    "LANGUAGE RULE: Write the entire response in natural, simple Hinglish (Hindi written in Roman script mixed with simple English biology terms). "
-    "For example: 'Krebs cycle matrix of mitochondria me hoti hai.'\n\n"
+    "LANGUAGE RULE: Write the entire response in natural, simple Hinglish (Hindi written in Roman script mixed with simple English biology terms).\n\n"
     "CRITICAL FORMATTING RULES FOR TELEGRAM:\n"
     "1. Do NOT use headers like ### or hashtags.\n"
     "2. Do NOT use horizontal lines like ---\n"
@@ -54,7 +54,10 @@ async def startbioguru(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "2. Bot ko mention karke: `@ncertbiologybot Krebs cycle?`\n"
         "3. Direct Message (DM) me bina kisi command ke poochhein!\n"
     )
-    await update.message.reply_text(welcome_msg, parse_mode='Markdown')
+    try:
+        await update.message.reply_text(welcome_msg, parse_mode='Markdown')
+    except Exception:
+        await update.message.reply_text(welcome_msg)
 
 # Handle Questions
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -82,23 +85,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_query = user_text.strip()
 
     if not user_query:
-        await update.message.reply_text("Kripya apna question likhein! (e.g., /ask Krebs cycle?)")
+        await update.message.reply_text("Kripya apna question likhein! (e.g., /ask Cry1Ab gene kya hai?)")
         return
 
     try:
         full_prompt = f"{NCERT_PROMPT}{user_query}"
         
+        # Updated to gemini-2.5-flash for maximum stability & accuracy
         response = client.models.generate_content(
-            model='gemini-flash-latest',
+            model='gemini-2.5-flash',
             contents=full_prompt,
         )
         
         if response.text:
-            # Telegram Par Markdown Enable Karke Send Karein
             try:
                 await update.message.reply_text(response.text, parse_mode='Markdown')
             except Exception:
-                # Agar koi formatting character error aaye toh normal text ki tarah bhej de
+                # Agar Markdown formatting error aaye, toh plain text bhej do
                 await update.message.reply_text(response.text)
         else:
             await update.message.reply_text("Kripya apna sawal thoda spasht (clear) karke poochhein.")
