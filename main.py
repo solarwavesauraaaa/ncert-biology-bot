@@ -1,7 +1,7 @@
 import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import google.generativeai as genai
+from google import genai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -17,16 +17,14 @@ def run_dummy_server():
     server = HTTPServer(("0.0.0.0", port), DummyServer)
     server.serve_forever()
 
-# Start Web Server in background thread
 threading.Thread(target=run_dummy_server, daemon=True).start()
 
 # Read Environment Variables
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
-# Gemini Setup
-genai.configure(api_key=GEMINI_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+# Initialize Gemini Client with new SDK
+client = genai.Client(api_key=GEMINI_KEY)
 
 NCERT_PROMPT = (
     "You are a strict NCERT Biology expert for Class 11th and 12th NEET students. "
@@ -43,7 +41,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_query = update.message.text
     try:
         full_prompt = f"{NCERT_PROMPT}{user_query}"
-        response = model.generate_content(full_prompt)
+        
+        # New Google GenAI API Call
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=full_prompt,
+        )
         
         if response.text:
             await update.message.reply_text(response.text)
@@ -51,7 +54,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Kripya apna sawal thoda spasht (clear) karke poochhein.")
             
     except Exception as e:
-        print(f"Error Log: {e}")
+        print(f"Gemini API Error: {e}")
         await update.message.reply_text("Server me koi dikkat aayi hai, kripya thodi der baad try karein.")
 
 if __name__ == "__main__":
