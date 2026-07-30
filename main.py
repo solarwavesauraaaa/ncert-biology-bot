@@ -81,7 +81,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         def generate_ai_response():
             client = genai.Client(api_key=clean_key)
             return client.models.generate_content(
-                model='gemini-1.5-flash',
+                model='gemini-2.0-flash',
                 contents=full_prompt,
             )
 
