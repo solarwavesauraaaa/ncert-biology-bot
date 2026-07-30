@@ -32,8 +32,7 @@ NCERT_PROMPT = (
     "RESPONSE STRUCTURE:\n"
     "1. <b>Direct Definition:</b> Start with a clear 2-3 line simple definition.\n"
     "2. <b>Detailed Breakdown:</b> Key steps with <b>bullet points</b>.\n"
-    "3. <b>NCERT High-Yield Tip:</b> End with a <b>NEET Focus Point</b>.\n"
-    "4. Scope: If outside NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
+    "3. Scope: If outside NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
     "Question: "
 )
 
