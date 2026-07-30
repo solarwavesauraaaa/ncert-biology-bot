@@ -95,15 +95,8 @@ async def handle_ping(request):
     return web.Response(text="NCERT Bot is Live & Active!")
 
 async def main():
-    # Telegram Bot setup
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(CommandHandler("startbioguru", startbioguru))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-    app.add_handler(CommandHandler("ask", handle_message))
-
-    # Aiohttp Web Server setup
+    # 1. Web Server Setup
     server = web.Application()
-    # Note: add_get automatically handles HEAD requests in aiohttp!
     server.router.add_get('/', handle_ping)
     
     runner = web.AppRunner(server)
@@ -112,17 +105,26 @@ async def main():
     port = int(os.environ.get("PORT", 8080))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    print(f"Web server started on port {port}")
+    print(f"Web server active on port {port}")
 
-    # Start Telegram Bot Polling
+    # 2. Telegram Bot Setup
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app.add_handler(CommandHandler("startbioguru", startbioguru))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    app.add_handler(CommandHandler("ask", handle_message))
+
     async with app:
         await app.initialize()
         await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
-        print("NCERT Bot polling started successfully...")
+        # Drop pending updates to clear conflict queue
+        await app.updater.start_polling(drop_pending_updates=True, stop_signals=None)
+        print("Telegram Bot Polling started successfully!")
         
-        # Keep application running forever
-        await asyncio.Event().wait()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await app.updater.stop()
+            await app.stop()
 
 if __name__ == "__main__":
     asyncio.run(main())
