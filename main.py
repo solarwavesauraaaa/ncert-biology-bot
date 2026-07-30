@@ -11,21 +11,27 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_KEY = os.getenv("GROQ_API_KEY")
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")
 
-# NCERT Prompt Definition
+# Modern Hinglish NCERT Prompt Definition
 NCERT_PROMPT = (
-    "You are a strict NCERT Biology expert for Class 11th and 12th NEET students. "
-    "Only answer questions strictly covered in Class 11 and Class 12 NCERT Biology textbooks. "
-    "If a user has a typo, correct it gently and answer based on NCERT. "
-    "If a topic or question is NOT present in official NCERT Biology, reply strictly: "
-    "'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
-    "LANGUAGE RULE: Write the entire response in natural, simple Hinglish (Hindi in Roman script with English bio terms).\n\n"
-    "CRITICAL FORMATTING RULES FOR TELEGRAM:\n"
-    "1. Do NOT use headers like ### or hashtags.\n"
-    "2. Do NOT use horizontal lines like ---\n"
-    "3. Do NOT use LaTeX, dollar signs ($ or $$), or backslashes.\n"
-    "4. Use simple bold tags (**like this**) for key terms and title.\n"
-    "5. Use clear numbered lists or bullet points.\n"
-    "6. Write chemical terms simply (e.g., CO2, H+, NADH, FADH2, ATP).\n\n"
+    "You are an expert NCERT Biology mentor for NEET Class 11th & 12th aspirants.\n\n"
+    "CRITICAL LANGUAGE RULE (MODERN HINGLISH ONLY):\n"
+    "- Write strictly in natural, modern, chat-style Hinglish used by Indian students.\n"
+    "- DO NOT use difficult/pure Hindi words like 'Urja', 'Sankrit', 'Jeevbhautik', 'Prasarakshan', 'Pachan', 'Aavshyakta', 'Peshi'.\n"
+    "- ALWAYS replace pure Hindi vocabulary with common English/Hinglish terms: "
+    "Use 'Energy' (not Urja), 'Store' (not Sankrit), 'Digestive system/Digestion' (not Pachan), "
+    " 'Process' (not Prakriya/Jeevbhautik), 'Required' (not Aavshyakta), 'Muscle contraction' (not Peshi sankuchan), "
+    "'Nerve signal' (not Signal prasarakshan).\n"
+    "- Keep sentence structures casual, simple, and easy to read (e.g., 'ATP hamari body ki energy currency hai...').\n\n"
+    "RESPONSE STRUCTURE & GUIDELINES:\n"
+    "1. **Direct Definition:** Start with a clear 2-3 line simple definition.\n"
+    "2. **Detailed Breakdown:** Explain key steps, mechanisms, or structures step-by-step using bullet points.\n"
+    "3. **NCERT Keywords & Examples:** Highlight important NCERT terminology in bold.\n"
+    "4. **NEET High-Yield Tip:** End with a short 'NEET Point' summary.\n"
+    "5. **Scope Constraint:** If the question is outside Class 11/12 NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
+    "TELEGRAM FORMATTING RULES:\n"
+    "- Do NOT use headers like ### or ---\n"
+    "- Do NOT use LaTeX or dollar signs ($)\n"
+    "- Use simple bold tags (**like this**) for key terms.\n\n"
     "Question: "
 )
 
@@ -97,8 +103,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             def call_groq_llama():
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
-                    messages=[{"role": "user", "content": full_prompt}],
+                    messages=[
+                        {"role": "system", "content": "You are a modern Hinglish biology teacher. Use simple modern conversational Hinglish without pure difficult Hindi words."},
+                        {"role": "user", "content": full_prompt}
+                    ],
                     model="llama-3.3-70b-versatile",
+                    max_tokens=1000,
+                    temperature=0.3,
                 )
                 return chat_completion.choices[0].message.content
 
@@ -112,8 +123,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             def call_groq_deepseek():
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
-                    messages=[{"role": "user", "content": full_prompt}],
+                    messages=[
+                        {"role": "system", "content": "You are a modern Hinglish biology teacher. Use simple modern conversational Hinglish without pure difficult Hindi words."},
+                        {"role": "user", "content": full_prompt}
+                    ],
                     model="deepseek-r1-distill-llama-70b",
+                    max_tokens=1000,
+                    temperature=0.3,
                 )
                 return chat_completion.choices[0].message.content
 
@@ -123,7 +139,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- SEND RESPONSE TO USER ---
     if text_to_send:
-        # Strip thinking tags if DeepSeek outputs internal thoughts (<think>...</think>)
         if "<think>" in text_to_send and "</think>" in text_to_send:
             text_to_send = text_to_send.split("</think>")[-1].strip()
 
