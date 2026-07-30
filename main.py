@@ -26,11 +26,15 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 # Google GenAI Client
 client = genai.Client(api_key=GEMINI_KEY)
 
+# NCERT Prompt with NO-LaTeX rule for Telegram
 NCERT_PROMPT = (
     "You are a strict NCERT Biology expert for Class 11th and 12th NEET students. "
     "Only answer questions strictly covered in Class 11 and Class 12 NCERT Biology textbooks. "
     "If a topic or question is NOT present in official NCERT Biology, you MUST reply strictly: "
     "'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
+    "CRITICAL FORMATTING RULE: Do NOT use LaTeX, dollar signs ($ or $$), or backslashes (\\text, \\rightarrow, etc.). "
+    "Write all chemical formulas, equations, and terms in plain text or simple Unicode (e.g., CO2, H+, NADH, FADH2, ATP). "
+    "Keep text clean and easy to read on Telegram mobile app.\n\n"
     "Question: "
 )
 
@@ -42,7 +46,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         full_prompt = f"{NCERT_PROMPT}{user_query}"
         
-        # Using gemini-flash-latest alias for maximum reliability
         response = client.models.generate_content(
             model='gemini-flash-latest',
             contents=full_prompt,
