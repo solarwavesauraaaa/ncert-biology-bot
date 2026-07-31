@@ -14,6 +14,12 @@ RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")
 NCERT_PROMPT = (
     "You are an expert NCERT Biology mentor for NEET Class 11th & 12th aspirants.\n\n"
     "CRITICAL LANGUAGE RULE (MODERN HINGLISH ONLY):\n"
+    "- Write strictly in natural, modern, chat-style Hinglish used by Indian students.\n"
+    "- DO NOT use difficult/pure Hindi words like 'Urja', 'Sankrit', 'Jeevbhautik', 'Prasarakshan', 'Pachan', 'Aavshyakta', 'Peshi'.\n"
+    "- ALWAYS replace pure Hindi vocabulary with common English/Hinglish terms: "
+    "Use 'Energy' (not Urja), 'Store' (not Sankrit), 'Digestive system/Digestion' (not Pachan), "
+    "'Process' (not Prakriya), 'Required' (not Aavshyakta), 'Muscle contraction' (not Peshi sankuchan), "
+    "'Nerve signal' (not Signal prasarakshan).\n\n"
     "CRITICAL FORMATTING & EXPLANATION STYLE:\n"
     "- Frame every response in a clear, highly detailed, point-wise manner.\n"
     "- Break down complex mechanisms, functions, or concepts into clean points with <b>bold key terms</b>.\n"
@@ -22,7 +28,8 @@ NCERT_PROMPT = (
     "CRITICAL HTML FORMATTING RULES FOR TELEGRAM:\n"
     "1. Do NOT use markdown asterisks (* or **) or hashtags (###).\n"
     "2. For bold text, ONLY use HTML tags like <b>text</b>.\n"
-    "3. Scope: If a topic is outside Class 11/12 NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
+    "3. ALWAYS use the exact circle symbol '◉ ' for all bullet points and list items.\n"
+    "4. Scope: If a topic is outside Class 11/12 NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
     "Question: "
 )
 
@@ -40,6 +47,48 @@ async def startbioguru(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(welcome_msg, parse_mode='HTML')
         except Exception:
             await update.message.reply_text(welcome_msg)
+
+async def testkeys(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+        
+    await update.message.reply_text("🔍 Testing all Gemini keys... Please wait!")
+    
+    gemini_keys_raw = os.getenv("GEMINI_API_KEYS", "") or os.getenv("GEMINI_API_KEY", "")
+    gemini_keys = [k.strip() for k in gemini_keys_raw.split(",") if k.strip()]
+    
+    if not gemini_keys:
+        await update.message.reply_text("❌ Koi Gemini API Key nahi mili! Environment variable check karein.")
+        return
+
+    working_count = 0
+    failed_keys = []
+
+    for index, key in enumerate(gemini_keys, start=1):
+        try:
+            def call_gemini():
+                client = genai.Client(api_key=key)
+                return client.models.generate_content(
+                    model='gemini-2.0-flash',
+                    contents="Say Hi",
+                )
+            res = await asyncio.to_thread(call_gemini)
+            if res and res.text:
+                working_count += 1
+        except Exception as e:
+            failed_keys.append(f"Key #{index} ({key[:8]}...{key[-4:]})")
+            print(f"❌ FAIL [Key #{index}]: {key[:10]}...{key[-5:]} -> {e}")
+
+    report = (
+        f"<b>📊 API Keys Test Report:</b>\n\n"
+        f"✅ <b>Working Keys:</b> {working_count}/{len(gemini_keys)}\n"
+        f"❌ <b>Failed Keys:</b> {len(failed_keys)}\n\n"
+        f"Check Render terminal logs for exact details of failed keys!"
+    )
+    try:
+        await update.message.reply_text(report, parse_mode='HTML')
+    except Exception:
+        await update.message.reply_text(report)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -158,6 +207,7 @@ def main():
     # Handlers
     app.add_handler(CommandHandler("start", startbioguru))
     app.add_handler(CommandHandler("startbioguru", startbioguru))
+    app.add_handler(CommandHandler("testkeys", testkeys))
     app.add_handler(CommandHandler("ask", handle_message))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
