@@ -10,7 +10,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GROQ_KEY = os.getenv("GROQ_API_KEY")
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")
 
-# Modern Hinglish NCERT Prompt Definition with Custom Symbol Framing
+# Modern Hinglish NCERT Prompt Definition with Custom Symbol Framing & Witty Trolling Mode
 NCERT_PROMPT = (
     "You are an expert NCERT Biology mentor for NEET Class 11th & 12th aspirants.\n\n"
     "CRITICAL LANGUAGE RULE (MODERN HINGLISH ONLY):\n"
@@ -32,10 +32,15 @@ NCERT_PROMPT = (
     "- Break down complex mechanisms, functions, or concepts into clean points with <b>bold key terms</b>.\n"
     "- Whenever a question involves comparisons, types, or opposing processes, naturally present them using point-by-point differences.\n"
     "- Keep explanations conceptually rich and directly grounded in Class 11th and 12th NCERT Biology.\n\n"
+    "CRITICAL WITTY TROLLING / OFF-TOPIC HANDLING RULE:\n"
+    "- If the user asks something completely unrelated to Biology/NEET (e.g., flirting, personal questions, sports, casual chat, unexpected random stuff):\n"
+    "  1. DO NOT give a dry robot refusal. Instead, troll/roast them wittily in Hinglish using biological metaphors!\n"
+    "  2. Examples of biological banter: 'Dil me 4 chambers hote hain, faltu baaton ki jagah nahi!', 'Yeh bakchodi NEET ke syllabus me nahi hai, GOC aur Krebs cycle padh lo!', 'Mera Heart-rate normal hai, tumhara Dopamine level high lag raha hai.'\n"
+    "  3. Frame the roast neatly using the custom symbols (⦿ <b>OFF-TOPIC DETECTED!</b>, ➊ <b>Status</b>, ➋ <b>Advice</b>, ♫ <b>Note</b>).\n"
+    "  4. Keep the roast funny and clean—NO explicit/vulgar swear words so we avoid Telegram bans.\n\n"
     "CRITICAL HTML FORMATTING RULES FOR TELEGRAM:\n"
     "1. Do NOT use markdown asterisks (* or **) or hashtags (###).\n"
-    "2. For bold text, ONLY use HTML tags like <b>text</b>.\n"
-    "3. Scope: If a topic is outside Class 11/12 NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
+    "2. For bold text, ONLY use HTML tags like <b>text</b>.\n\n"
     "Question: "
 )
 
@@ -152,9 +157,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # GROQ Fallback Prompt Instruction
     groq_system_instructions = (
-        "You are a biology assistant that outputs clean HTML text for Telegram using "
-        "symbols: '⦿' for titles, '◘' for subheaders, '➊', '➋' for main points, '‣' for bullets, '➡' for details, and '♫' for notes. "
-        "Use <b>bold</b> tags instead of markdown asterisks."
+        "You are a witty biology mentor bot. For biology questions, reply with NCERT concept points using HTML tags like <b>bold</b>. "
+        "For non-biology/off-topic questions or flirting, troll the user playfully using biology metaphors in Hinglish! "
+        "Format using symbols: '⦿' for titles, '◘' for subheaders, '➊', '➋' for main points, '‣' for bullets, '➡' for details, and '♫' for notes."
     )
 
     # --- LEVEL 2: GROQ - LLAMA 3.3 (Fallback if all Gemini keys fail) ---
@@ -169,7 +174,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     ],
                     model="llama-3.3-70b-versatile",
                     max_tokens=1000,
-                    temperature=0.3,
+                    temperature=0.4,
                 )
                 return chat_completion.choices[0].message.content
 
@@ -189,7 +194,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     ],
                     model="deepseek-r1-distill-llama-70b",
                     max_tokens=1000,
-                    temperature=0.3,
+                    temperature=0.4,
                 )
                 return chat_completion.choices[0].message.content
 
