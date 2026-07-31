@@ -10,7 +10,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GROQ_KEY = os.getenv("GROQ_API_KEY")
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")
 
-# Modern Hinglish NCERT Prompt Definition
+# Modern Hinglish NCERT Prompt Definition with Custom Symbol Framing
 NCERT_PROMPT = (
     "You are an expert NCERT Biology mentor for NEET Class 11th & 12th aspirants.\n\n"
     "CRITICAL LANGUAGE RULE (MODERN HINGLISH ONLY):\n"
@@ -20,16 +20,22 @@ NCERT_PROMPT = (
     "Use 'Energy' (not Urja), 'Store' (not Sankrit), 'Digestive system/Digestion' (not Pachan), "
     "'Process' (not Prakriya), 'Required' (not Aavshyakta), 'Muscle contraction' (not Peshi sankuchan), "
     "'Nerve signal' (not Signal prasarakshan).\n\n"
+    "CRITICAL INTERACTIVE VISUAL FORMATTING SYMBOLS:\n"
+    "- Main Headers/Titles: Start with '⦿ <b>TITLE</b>'\n"
+    "- Sub-headers/Categories: Start with '◘ <b>Sub-header</b>'\n"
+    "- Major Step-by-Step Points: Use numbered symbols '➊', '➋', '➌', '➍', '➎'\n"
+    "- Primary Bullet Points: Use '‣ '\n"
+    "- Explanations/Direct Points: Use '➡ '\n"
+    "- Important Notes/Tips: Use '♫ <b>Note:</b>'\n\n"
     "CRITICAL FORMATTING & EXPLANATION STYLE:\n"
-    "- Frame every response in a clear, highly detailed, point-wise manner.\n"
+    "- Frame every response in a clean, highly detailed, point-wise manner using the exact symbols specified above.\n"
     "- Break down complex mechanisms, functions, or concepts into clean points with <b>bold key terms</b>.\n"
-    "- Whenever a question involves comparisons, types, or opposing processes, naturally present them using point-by-point differences or comparison points.\n"
+    "- Whenever a question involves comparisons, types, or opposing processes, naturally present them using point-by-point differences.\n"
     "- Keep explanations conceptually rich and directly grounded in Class 11th and 12th NCERT Biology.\n\n"
     "CRITICAL HTML FORMATTING RULES FOR TELEGRAM:\n"
     "1. Do NOT use markdown asterisks (* or **) or hashtags (###).\n"
     "2. For bold text, ONLY use HTML tags like <b>text</b>.\n"
-    "3. ALWAYS use the exact circle symbol '◙' for all bullet points.\n"
-    "4. Scope: If a topic is outside Class 11/12 NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
+    "3. Scope: If a topic is outside Class 11/12 NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
     "Question: "
 )
 
@@ -38,9 +44,9 @@ async def startbioguru(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🌿 <b>Welcome to Bio Guru NCERT Assistant!</b> 🌿\n\n"
         "Mai NEET Class 11th & 12th Biology doubts solve karne ke liye aapka dedicated bot hu.\n\n"
         "📌 <b>Group me doubt poochne ke tareeke:</b>\n"
-        "1. <code>/ask Krebs cycle kya hai?</code>\n"
-        "2. Bot ko mention karke: <code>@ncertbiologybot Krebs cycle?</code>\n"
-        "3. Direct Message (DM) me bina kisi command ke poochhein!\n"
+        "➊ <code>/ask Krebs cycle kya hai?</code>\n"
+        "➋ Bot ko mention karke: <code>@ncertbiologybot Krebs cycle?</code>\n"
+        "➌ Direct Message (DM) me bina kisi command ke poochhein!\n"
     )
     if update.message:
         try:
@@ -72,7 +78,7 @@ async def testkeys(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     model='gemini-2.0-flash',
                     contents="Say Hi",
                 )
-            res = await asyncio.to_thread(call_gemini)
+            res = await asyncio.wait_for(asyncio.to_thread(call_gemini), timeout=3.0)
             if res and res.text:
                 working_count += 1
         except Exception as e:
@@ -125,7 +131,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     gemini_keys_raw = os.getenv("GEMINI_API_KEYS", "") or os.getenv("GEMINI_API_KEY", "")
     gemini_keys = [k.strip() for k in gemini_keys_raw.split(",") if k.strip()]
 
-    # --- LEVEL 1: GEMINI MULTI-KEY ROTATION ---
+    # --- LEVEL 1: GEMINI MULTI-KEY ROTATION WITH FAST TIMEOUT ---
     for index, key in enumerate(gemini_keys, start=1):
         try:
             def call_gemini():
@@ -135,13 +141,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     contents=full_prompt,
                 )
             
-            response = await asyncio.to_thread(call_gemini)
+            # Strict 4-second timeout to avoid long waiting on dead keys
+            response = await asyncio.wait_for(asyncio.to_thread(call_gemini), timeout=4.0)
             if response and response.text:
                 text_to_send = response.text
-                break  # Stop trying keys as soon as one works
+                break  # Stop trying as soon as one key succeeds
         except Exception as gemini_error:
             print(f"❌ FAIL [Key #{index}]: {key[:10]}...{key[-5:]} -> {gemini_error}")
             continue
+
+    # GROQ Fallback Prompt Instruction
+    groq_system_instructions = (
+        "You are a biology assistant that outputs clean HTML text for Telegram using "
+        "symbols: '⦿' for titles, '◘' for subheaders, '➊', '➋' for main points, '‣' for bullets, '➡' for details, and '♫' for notes. "
+        "Use <b>bold</b> tags instead of markdown asterisks."
+    )
 
     # --- LEVEL 2: GROQ - LLAMA 3.3 (Fallback if all Gemini keys fail) ---
     if not text_to_send and GROQ_KEY:
@@ -150,7 +164,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": "You are a biology assistant that outputs clean text using HTML formatting (<b>bold</b>) and bullet symbol '◉ ' instead of markdown."},
+                        {"role": "system", "content": groq_system_instructions},
                         {"role": "user", "content": full_prompt}
                     ],
                     model="llama-3.3-70b-versatile",
@@ -159,7 +173,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return chat_completion.choices[0].message.content
 
-            text_to_send = await asyncio.to_thread(call_groq_llama)
+            text_to_send = await asyncio.wait_for(asyncio.to_thread(call_groq_llama), timeout=6.0)
         except Exception as llama_error:
             print(f"LLAMA ERROR (Fallback to DeepSeek): {llama_error}")
 
@@ -170,7 +184,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": "You are a biology assistant that outputs clean text using HTML formatting (<b>bold</b>) and bullet symbol '◉ ' instead of markdown."},
+                        {"role": "system", "content": groq_system_instructions},
                         {"role": "user", "content": full_prompt}
                     ],
                     model="deepseek-r1-distill-llama-70b",
@@ -179,7 +193,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return chat_completion.choices[0].message.content
 
-            text_to_send = await asyncio.to_thread(call_groq_deepseek)
+            text_to_send = await asyncio.wait_for(asyncio.to_thread(call_groq_deepseek), timeout=8.0)
         except Exception as deepseek_error:
             print(f"DEEPSEEK ERROR: {deepseek_error}")
 
