@@ -84,7 +84,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     gemini_keys = [k.strip() for k in gemini_keys_raw.split(",") if k.strip()]
 
     # --- LEVEL 1: GEMINI MULTI-KEY ROTATION ---
-    for key in gemini_keys:
+    for index, key in enumerate(gemini_keys, start=1):
         try:
             def call_gemini():
                 client = genai.Client(api_key=key)
@@ -98,7 +98,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text_to_send = response.text
                 break  # Stop trying keys as soon as one works
         except Exception as gemini_error:
-            print(f"GEMINI KEY EXHAUSTED/INVALID ({key[:10]}...): {gemini_error}")
+            print(f"❌ FAIL [Key #{index}]: {key[:10]}...{key[-5:]} -> {gemini_error}")
             continue
 
     # --- LEVEL 2: GROQ - LLAMA 3.3 (Fallback if all Gemini keys fail) ---
