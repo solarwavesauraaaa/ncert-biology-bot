@@ -7,7 +7,6 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 
 # Environment Variables
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_KEY = os.getenv("GROQ_API_KEY")
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")
 
@@ -23,13 +22,13 @@ NCERT_PROMPT = (
     "'Nerve signal' (not Signal prasarakshan).\n\n"
     "CRITICAL FORMATTING & EXPLANATION STYLE:\n"
     "- Frame every response in a clear, highly detailed, point-wise manner.\n"
-    "- Break down complex mechanisms, functions, or concepts into clean bullet points with <b>bold key terms</b>.\n"
+    "- Break down complex mechanisms, functions, or concepts into clean points with <b>bold key terms</b>.\n"
     "- Whenever a question involves comparisons, types, or opposing processes, naturally present them using point-by-point differences or comparison points.\n"
     "- Keep explanations conceptually rich and directly grounded in Class 11th and 12th NCERT Biology.\n\n"
     "CRITICAL HTML FORMATTING RULES FOR TELEGRAM:\n"
     "1. Do NOT use markdown asterisks (* or **) or hashtags (###).\n"
     "2. For bold text, ONLY use HTML tags like <b>text</b>.\n"
-    "3. For bullet points, use clean symbols like '◙' or '👉 '.\n"
+    "3. ALWAYS use the exact circle symbol '◉ ' for all bullet points and list items.\n"
     "4. Scope: If a topic is outside Class 11/12 NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
     "Question: "
 )
@@ -80,11 +79,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     full_prompt = f"{NCERT_PROMPT}{user_query}"
     text_to_send = None
 
-    # --- LEVEL 1: GEMINI API ---
-    if GEMINI_KEY:
+    # Retrieve multiple comma-separated Gemini keys
+    gemini_keys_raw = os.getenv("GEMINI_API_KEYS", "") or os.getenv("GEMINI_API_KEY", "")
+    gemini_keys = [k.strip() for k in gemini_keys_raw.split(",") if k.strip()]
+
+    # --- LEVEL 1: GEMINI MULTI-KEY ROTATION ---
+    for key in gemini_keys:
         try:
             def call_gemini():
-                client = genai.Client(api_key=GEMINI_KEY.strip())
+                client = genai.Client(api_key=key)
                 return client.models.generate_content(
                     model='gemini-2.0-flash',
                     contents=full_prompt,
@@ -93,17 +96,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             response = await asyncio.to_thread(call_gemini)
             if response and response.text:
                 text_to_send = response.text
+                break  # Stop trying keys as soon as one works
         except Exception as gemini_error:
-            print(f"GEMINI ERROR (Fallback to Groq Llama): {gemini_error}")
+            print(f"GEMINI KEY EXHAUSTED/INVALID ({key[:10]}...): {gemini_error}")
+            continue
 
-    # --- LEVEL 2: GROQ - LLAMA 3.3 ---
+    # --- LEVEL 2: GROQ - LLAMA 3.3 (Fallback if all Gemini keys fail) ---
     if not text_to_send and GROQ_KEY:
         try:
             def call_groq_llama():
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": "You are a biology assistant that outputs clean text using HTML formatting (<b>bold</b>) instead of markdown asterisks."},
+                        {"role": "system", "content": "You are a biology assistant that outputs clean text using HTML formatting (<b>bold</b>) and bullet symbol '◉ ' instead of markdown."},
                         {"role": "user", "content": full_prompt}
                     ],
                     model="llama-3.3-70b-versatile",
@@ -123,7 +128,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": "You are a biology assistant that outputs clean text using HTML formatting (<b>bold</b>) instead of markdown asterisks."},
+                        {"role": "system", "content": "You are a biology assistant that outputs clean text using HTML formatting (<b>bold</b>) and bullet symbol '◉ ' instead of markdown."},
                         {"role": "user", "content": full_prompt}
                     ],
                     model="deepseek-r1-distill-llama-70b",
@@ -144,7 +149,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await update.message.reply_text(text_to_send, parse_mode='HTML')
         except Exception:
-            # Clean HTML tags if parsing fails
             clean_text = text_to_send.replace('<b>', '').replace('</b>', '').replace('<code>', '').replace('</code>', '')
             await update.message.reply_text(clean_text)
     else:
