@@ -28,7 +28,7 @@ NCERT_PROMPT = (
     "CRITICAL HTML FORMATTING RULES FOR TELEGRAM:\n"
     "1. Do NOT use markdown asterisks (* or **) or hashtags (###).\n"
     "2. For bold text, ONLY use HTML tags like <b>text</b>.\n"
-    "3. ALWAYS use the exact circle symbol '◉ ' for all bullet points and list items.\n"
+    "3. ALWAYS use the exact circle symbol '◉ ' or '◙' for all bullet points and list items.\n"
     "4. Scope: If a topic is outside Class 11/12 NCERT Biology, reply ONLY: 'Yeh official Class 11th & 12th NCERT Biology me nahi hai.'\n\n"
     "Question: "
 )
