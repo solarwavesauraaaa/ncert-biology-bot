@@ -143,35 +143,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_to_send = None
     model_used = None
 
-    # ========== LEVEL 1: DEEPSEEK QWEN 32B ==========
+    # ========== LEVEL 1: LLAMA 3.3 (70B) - PRIMARY ==========
     if GROQ_KEY:
-        try:
-            logger.info("🔄 Trying DeepSeek Qwen 32B...")
-            
-            def call_deepseek():
-                groq_client = Groq(api_key=GROQ_KEY.strip())
-                chat_completion = groq_client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": "You are a strict NCERT Biology mentor. Give accurate NCERT-based answers only."},
-                        {"role": "user", "content": full_prompt}
-                    ],
-                    model="deepseek-r1-distill-qwen-32b",
-                    max_tokens=1500,
-                    temperature=0.1,
-                )
-                return chat_completion.choices[0].message.content
-
-            text_to_send = await asyncio.wait_for(asyncio.to_thread(call_deepseek), timeout=10.0)
-            if text_to_send:
-                model_used = "🚀 DeepSeek Qwen 32B"
-                logger.info(f"✅ SUCCESS: Response from {model_used}")
-        except asyncio.TimeoutError:
-            logger.warning("⏰ DeepSeek Qwen 32B TIMEOUT (10s)")
-        except Exception as deepseek_error:
-            logger.error(f"❌ DeepSeek Qwen 32B ERROR: {deepseek_error}")
-
-    # ========== LEVEL 2: LLAMA 3.3 (70B) ==========
-    if not text_to_send and GROQ_KEY:
         try:
             logger.info("🔄 Trying Llama 3.3 70B...")
             
@@ -197,7 +170,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as llama_error:
             logger.error(f"❌ Llama 3.3 70B ERROR: {llama_error}")
 
-    # ========== LEVEL 3: MIXTRAL 8x7B ==========
+    # ========== LEVEL 2: MIXTRAL 8x7B ==========
     if not text_to_send and GROQ_KEY:
         try:
             logger.info("🔄 Trying Mixtral 8x7B...")
@@ -224,7 +197,34 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as mixtral_error:
             logger.error(f"❌ Mixtral 8x7B ERROR: {mixtral_error}")
 
-    # ========== LEVEL 4: LLAMA 3.2 (3B) ==========
+    # ========== LEVEL 3: LLAMA 3.1 (8B) ==========
+    if not text_to_send and GROQ_KEY:
+        try:
+            logger.info("🔄 Trying Llama 3.1 8B...")
+            
+            def call_llama3_1():
+                groq_client = Groq(api_key=GROQ_KEY.strip())
+                chat_completion = groq_client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": "You are a strict NCERT Biology mentor. Give accurate NCERT-based answers only."},
+                        {"role": "user", "content": full_prompt}
+                    ],
+                    model="llama-3.1-8b-instant",
+                    max_tokens=1500,
+                    temperature=0.1,
+                )
+                return chat_completion.choices[0].message.content
+
+            text_to_send = await asyncio.wait_for(asyncio.to_thread(call_llama3_1), timeout=6.0)
+            if text_to_send:
+                model_used = "🦙 Llama 3.1 8B"
+                logger.info(f"✅ SUCCESS: Response from {model_used}")
+        except asyncio.TimeoutError:
+            logger.warning("⏰ Llama 3.1 8B TIMEOUT (6s)")
+        except Exception as llama_error:
+            logger.error(f"❌ Llama 3.1 8B ERROR: {llama_error}")
+
+    # ========== LEVEL 4: LLAMA 3.2 (3B) - Fast Fallback ==========
     if not text_to_send and GROQ_KEY:
         try:
             logger.info("🔄 Trying Llama 3.2 3B...")
@@ -251,32 +251,32 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as llama_error:
             logger.error(f"❌ Llama 3.2 3B ERROR: {llama_error}")
 
-    # ========== LEVEL 5: LLAMA 3.1 (8B) - Additional Fallback ==========
+    # ========== LEVEL 5: GEMMA 2 (9B) - Additional Fallback ==========
     if not text_to_send and GROQ_KEY:
         try:
-            logger.info("🔄 Trying Llama 3.1 8B...")
+            logger.info("🔄 Trying Gemma 2 9B...")
             
-            def call_llama3_1():
+            def call_gemma():
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
                     messages=[
                         {"role": "system", "content": "You are a strict NCERT Biology mentor. Give accurate NCERT-based answers only."},
                         {"role": "user", "content": full_prompt}
                     ],
-                    model="llama-3.1-8b-instant",
+                    model="gemma2-9b-it",
                     max_tokens=1500,
                     temperature=0.1,
                 )
                 return chat_completion.choices[0].message.content
 
-            text_to_send = await asyncio.wait_for(asyncio.to_thread(call_llama3_1), timeout=6.0)
+            text_to_send = await asyncio.wait_for(asyncio.to_thread(call_gemma), timeout=6.0)
             if text_to_send:
-                model_used = "🦙 Llama 3.1 8B"
+                model_used = "🧬 Gemma 2 9B"
                 logger.info(f"✅ SUCCESS: Response from {model_used}")
         except asyncio.TimeoutError:
-            logger.warning("⏰ Llama 3.1 8B TIMEOUT (6s)")
-        except Exception as llama_error:
-            logger.error(f"❌ Llama 3.1 8B ERROR: {llama_error}")
+            logger.warning("⏰ Gemma 2 9B TIMEOUT (6s)")
+        except Exception as gemma_error:
+            logger.error(f"❌ Gemma 2 9B ERROR: {gemma_error}")
 
     # ========== LEVEL 6: GEMINI (Last Resort) ==========
     if not text_to_send:
