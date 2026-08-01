@@ -131,60 +131,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     full_prompt = f"{NCERT_PROMPT}{user_query}"
     text_to_send = None
 
-    # Retrieve multiple comma-separated Gemini keys
-    gemini_keys_raw = os.getenv("GEMINI_API_KEYS", "") or os.getenv("GEMINI_API_KEY", "")
-    gemini_keys = [k.strip() for k in gemini_keys_raw.split(",") if k.strip()]
-
-    # --- LEVEL 1: GEMINI MULTI-KEY ROTATION WITH FAST TIMEOUT ---
-    for index, key in enumerate(gemini_keys, start=1):
-        try:
-            def call_gemini():
-                client = genai.Client(api_key=key)
-                return client.models.generate_content(
-                    model='gemini-2.0-flash',
-                    contents=full_prompt,
-                )
-            
-            # Strict 4-second timeout to avoid long waiting on dead keys
-            response = await asyncio.wait_for(asyncio.to_thread(call_gemini), timeout=4.0)
-            if response and response.text:
-                text_to_send = response.text
-                break  # Stop trying as soon as one key succeeds
-        except Exception as gemini_error:
-            print(f"❌ FAIL [Key #{index}]: {key[:10]}...{key[-5:]} -> {gemini_error}")
-            continue
-
-    # GROQ Fallback Prompt Instruction
+    # Groq System Instructions
     groq_system_instructions = (
         "You are a witty biology mentor bot. For biology questions, reply with NCERT concept points using HTML tags like <b>bold</b>. "
         "For non-biology/off-topic questions or flirting, troll the user playfully using biology metaphors in Hinglish! "
         "Format using symbols: '⦿' for titles, '◘' for subheaders, '➊', '➋' for main points, '‣' for bullets, '➡' for details, and '♫' for notes."
     )
 
-    # --- LEVEL 2: GROQ - LLAMA 3.3 (Fallback if all Gemini keys fail) ---
-    if not text_to_send and GROQ_KEY:
+    # ========== LEVEL 1: DEEPSEEK R1 (PRIORITY) ==========
+    if GROQ_KEY:
         try:
-            def call_groq_llama():
-                groq_client = Groq(api_key=GROQ_KEY.strip())
-                chat_completion = groq_client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": groq_system_instructions},
-                        {"role": "user", "content": full_prompt}
-                    ],
-                    model="llama-3.3-70b-versatile",
-                    max_tokens=1000,
-                    temperature=0.4,
-                )
-                return chat_completion.choices[0].message.content
-
-            text_to_send = await asyncio.wait_for(asyncio.to_thread(call_groq_llama), timeout=6.0)
-        except Exception as llama_error:
-            print(f"LLAMA ERROR (Fallback to DeepSeek): {llama_error}")
-
-    # --- LEVEL 3: GROQ - DEEPSEEK R1 ---
-    if not text_to_send and GROQ_KEY:
-        try:
-            def call_groq_deepseek():
+            def call_deepseek():
                 groq_client = Groq(api_key=GROQ_KEY.strip())
                 chat_completion = groq_client.chat.completions.create(
                     messages=[
@@ -197,12 +154,61 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return chat_completion.choices[0].message.content
 
-            text_to_send = await asyncio.wait_for(asyncio.to_thread(call_groq_deepseek), timeout=8.0)
+            text_to_send = await asyncio.wait_for(asyncio.to_thread(call_deepseek), timeout=8.0)
+            if text_to_send:
+                print("✅ RESPONSE FROM: DeepSeek R1")
         except Exception as deepseek_error:
             print(f"DEEPSEEK ERROR: {deepseek_error}")
 
-    # --- SEND RESPONSE TO USER ---
+    # ========== LEVEL 2: LLAMA 3.3 (if DeepSeek fails) ==========
+    if not text_to_send and GROQ_KEY:
+        try:
+            def call_llama():
+                groq_client = Groq(api_key=GROQ_KEY.strip())
+                chat_completion = groq_client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": groq_system_instructions},
+                        {"role": "user", "content": full_prompt}
+                    ],
+                    model="llama-3.3-70b-versatile",
+                    max_tokens=1000,
+                    temperature=0.4,
+                )
+                return chat_completion.choices[0].message.content
+
+            text_to_send = await asyncio.wait_for(asyncio.to_thread(call_llama), timeout=6.0)
+            if text_to_send:
+                print("✅ RESPONSE FROM: Llama 3.3")
+        except Exception as llama_error:
+            print(f"LLAMA ERROR: {llama_error}")
+
+    # ========== LEVEL 3: GEMINI (Last Resort) ==========
+    if not text_to_send:
+        # Retrieve multiple comma-separated Gemini keys
+        gemini_keys_raw = os.getenv("GEMINI_API_KEYS", "") or os.getenv("GEMINI_API_KEY", "")
+        gemini_keys = [k.strip() for k in gemini_keys_raw.split(",") if k.strip()]
+
+        for index, key in enumerate(gemini_keys, start=1):
+            try:
+                def call_gemini():
+                    client = genai.Client(api_key=key)
+                    return client.models.generate_content(
+                        model='gemini-2.0-flash',
+                        contents=full_prompt,
+                    )
+                
+                response = await asyncio.wait_for(asyncio.to_thread(call_gemini), timeout=4.0)
+                if response and response.text:
+                    text_to_send = response.text
+                    print(f"✅ RESPONSE FROM: Gemini (Key #{index})")
+                    break
+            except Exception as gemini_error:
+                print(f"❌ GEMINI FAIL [Key #{index}]: {key[:10]}...{key[-5:]} -> {gemini_error}")
+                continue
+
+    # ========== SEND RESPONSE TO USER ==========
     if text_to_send:
+        # Remove thinking tags if present (DeepSeek sometimes adds them)
         if "<think>" in text_to_send and "</think>" in text_to_send:
             text_to_send = text_to_send.split("</think>")[-1].strip()
 
@@ -223,7 +229,6 @@ def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN.strip()).build()
 
     # Handlers
-    app.add_handler(CommandHandler("start", startbioguru))
     app.add_handler(CommandHandler("startbioguru", startbioguru))
     app.add_handler(CommandHandler("testkeys", testkeys))
     app.add_handler(CommandHandler("ask", handle_message))
