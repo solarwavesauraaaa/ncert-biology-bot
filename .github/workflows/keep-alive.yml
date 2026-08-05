@@ -10,6 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ping Render
+      - name: Wake Render
         run: |
-          curl -L https://ncert-biology-bot.onrender.com/
+          curl -I https://ncert-biology-bot.onrender.com/
